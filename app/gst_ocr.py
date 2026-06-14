@@ -1,9 +1,24 @@
 import easyocr
 import re
 
-reader = easyocr.Reader(['en'])
+# Lazy loading
+reader = None
+
+
+def get_reader():
+    global reader
+
+    if reader is None:
+        print("Loading EasyOCR model...")
+        reader = easyocr.Reader(['en'])
+        print("EasyOCR model loaded successfully.")
+
+    return reader
+
 
 def extract_gst_details(image_path):
+
+    reader = get_reader()
 
     results = reader.readtext(image_path)
 
