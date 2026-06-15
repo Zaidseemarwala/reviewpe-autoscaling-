@@ -257,11 +257,11 @@ def register_business(
     reviewpe_id = f"RVP-{city_code}-{sequence_number:06d}"
 
     qr_path = generate_qr_code(reviewpe_id)
-
-    # Create Business
+    BASE_URL = "https://reviewpe-production.up.railway.app"
+    qr_url = f"{BASE_URL}/{qr_path}"
     business = Business(
-        reviewpe_business_id=reviewpe_id,
-        qr_code_url=qr_path,
+    reviewpe_business_id=reviewpe_id,
+    qr_code_url=qr_url,
 
         business_name=request.business_name,
         owner_name=request.owner_name,
@@ -299,7 +299,7 @@ def register_business(
         "success": True,
         "message": "Business registered successfully",
         "reviewpe_business_id": reviewpe_id,
-        "qr_code_url": qr_path
+        "qr_code_url": qr_url
     }
 
 
