@@ -18,6 +18,8 @@ if (!token) {
 
   return;
 }
+const BACKEND_URL =
+  "https://reviewpe-production.up.railway.app";
 
   const fetchDashboard = async () => {
     try {
@@ -113,7 +115,7 @@ window.location.replace(
             <img
               src={
   data.logo_url
-    ? `http://127.0.0.1:8000/${data.logo_url}`
+    ? `https://reviewpe-production.up.railway.app/${data.logo_url}`
     : "/default-business.png"
 }
               alt="Logo"
@@ -240,10 +242,10 @@ window.location.replace(
           </h2>
 
           <img
-            src={`http://127.0.0.1:8000/${data.qr_code_url}`}
-            alt="QR Code"
-            className="w-64 mx-auto"
-          />
+  src={data.qr_code_url}
+  alt="QR Code"
+  className="w-64 mx-auto"
+/>
 
           <p className="mt-4 text-slate-500">
             Customers can scan this QR code

@@ -1278,10 +1278,10 @@ export default function Register() {
                 <p style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:14 }}>Print & display this at your store</p>
                 <div className="qr-frame float-el" style={{ display:"inline-block" }}>
                   <img
-                    src={`http://127.0.0.1:8000/${successData.qr_code_url}`}
-                    alt="Your ReviewPe QR Code"
-                    style={{ width:180, height:180, display:"block" }}
-                  />
+  src={successData.qr_code_url}
+  alt="Your ReviewPe QR Code"
+  style={{ width:180, height:180, display:"block" }}
+/>
                 </div>
                 <p style={{ fontSize:12, color:"#94a3b8", marginTop:12 }}>Customers scan this to leave a verified review</p>
               </div>
