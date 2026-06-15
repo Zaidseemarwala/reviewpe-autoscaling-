@@ -1,253 +1,423 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../services/api";
 
-/* ── tiny inline styles for animations not expressible in Tailwind ── */
+/* ─── Animations & base styles ─── */
 const Styles = () => (
   <style>{`
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
+      from { opacity: 0; transform: translateY(16px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes shimmer {
-      0%   { background-position: -200% center; }
-      100% { background-position:  200% center; }
-    }
-    @keyframes pulseRing {
-      0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.45); }
-      70%  { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
-      100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
-    }
-    @keyframes otpSlide {
-      from { opacity: 0; transform: translateY(10px); }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
-    .fade-up-1 { animation: fadeUp 0.5s ease 0.05s both; }
-    .fade-up-2 { animation: fadeUp 0.5s ease 0.15s both; }
-    .fade-up-3 { animation: fadeUp 0.5s ease 0.25s both; }
-    .fade-up-4 { animation: fadeUp 0.5s ease 0.35s both; }
-    .fade-up-5 { animation: fadeUp 0.5s ease 0.45s both; }
-    .fade-up-6 { animation: fadeUp 0.5s ease 0.55s both; }
-
-    .otp-reveal { animation: otpSlide 0.35s ease both; }
-
-    .shimmer-text {
-      background: linear-gradient(90deg, #6366f1 0%, #a5b4fc 45%, #6366f1 90%);
-      background-size: 200% auto;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      animation: shimmer 3s linear infinite;
+    @keyframes pulseRing {
+      0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+      70%  { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
+      100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
     }
 
-    .logo-pulse { animation: pulseRing 2.5s ease infinite; }
+    .rp-fade-1 { animation: fadeUp .45s ease .05s both; }
+    .rp-fade-2 { animation: fadeUp .45s ease .12s both; }
+    .rp-fade-3 { animation: fadeUp .45s ease .20s both; }
+    .rp-fade-4 { animation: fadeUp .45s ease .28s both; }
+    .rp-fade-5 { animation: fadeUp .45s ease .36s both; }
+    .rp-fade-6 { animation: fadeUp .45s ease .44s both; }
+    .rp-slide  { animation: slideIn .35s ease both; }
 
-    .otp-box input {
-      width: 44px;
-      height: 52px;
-      text-align: center;
-      font-size: 1.25rem;
-      font-weight: 700;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 12px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      color: #1e293b;
-      background: #fff;
-    }
-    .otp-box input:focus {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
-    }
-    .otp-box input.filled {
-      border-color: #6366f1;
-      background: #eef2ff;
+    /* ── Layout ── */
+    .rp-root {
+      display: flex;
+      min-height: 100vh;
+      font-family: Inter, system-ui, sans-serif;
     }
 
-    .spinner {
-      width: 18px; height: 18px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: inline-block;
-    }
-
-    .left-panel {
+    /* ── Left panel ── */
+    .rp-left {
+      width: 42%;
+      flex-shrink: 0;
       background: linear-gradient(145deg, #4338ca 0%, #6366f1 50%, #7c3aed 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 44px;
     }
-
-    .trust-card {
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 16px;
+    .rp-logo-row { display: flex; align-items: center; gap: 10px; }
+    .rp-logo-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3);
+      display: flex; align-items: center; justify-content: center;
+      animation: pulseRing 2.5s ease infinite;
+    }
+    .rp-brand { color: #fff; font-weight: 800; font-size: 22px; letter-spacing: -.5px; }
+    .rp-left-headline {
+      color: #fff; font-size: 32px; font-weight: 800;
+      line-height: 1.2; letter-spacing: -.5px; margin: 36px 0 10px;
+    }
+    .rp-left-sub { color: rgba(255,255,255,.7); font-size: 15px; line-height: 1.6; }
+    .rp-trust-list { display: flex; flex-direction: column; gap: 14px; margin: 28px 0; }
+    .rp-trust-item { display: flex; align-items: center; gap: 12px; }
+    .rp-trust-dot {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
+    }
+    .rp-trust-text { color: rgba(255,255,255,.85); font-size: 14px; font-weight: 500; }
+    .rp-review-card {
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+      border-radius: 16px; padding: 18px 20px;
       backdrop-filter: blur(8px);
     }
-
-    .input-field {
-      width: 100%;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 14px 16px;
-      font-size: 15px;
-      color: #1e293b;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      background: #fff;
-      box-sizing: border-box;
-    }
-    .input-field:focus {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
-    }
-    .input-field::placeholder { color: #94a3b8; }
-
-    .btn-primary {
-      width: 100%;
-      background: #6366f1;
-      color: #fff;
-      font-weight: 700;
-      font-size: 15px;
-      padding: 15px;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: #4f46e5;
-      transform: translateY(-1px);
-      box-shadow: 0 8px 20px rgba(99,102,241,0.35);
-    }
-    .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
-
-    .btn-ghost {
-      width: 100%;
-      background: transparent;
-      color: #6366f1;
-      font-weight: 600;
-      font-size: 15px;
-      padding: 14px;
-      border-radius: 12px;
-      border: 1.5px solid #e0e7ff;
-      cursor: pointer;
-      transition: background 0.2s, border-color 0.2s, transform 0.15s;
-    }
-    .btn-ghost:hover:not(:disabled) {
-      background: #eef2ff;
-      border-color: #6366f1;
-      transform: translateY(-1px);
-    }
-    .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .dev-otp {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 12px;
-      padding: 14px 16px;
-    }
-
-    .step-dot {
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.15);
-      border: 1px solid rgba(255,255,255,0.3);
+    .rp-review-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .rp-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,.25);
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+      font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .rp-review-name { color: #fff; font-size: 13px; font-weight: 700; margin: 0; }
+    .rp-review-biz  { color: rgba(255,255,255,.55); font-size: 11px; margin: 0; }
+    .rp-stars { color: #fbbf24; font-size: 12px; margin-left: auto; }
+    .rp-review-body { color: rgba(255,255,255,.8); font-size: 13px; line-height: 1.55; margin: 0; }
+    .rp-verified {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+      border-radius: 20px; padding: 3px 10px;
+      font-size: 11px; color: #fff; font-weight: 600; margin-top: 10px;
+    }
+
+    /* ── Right panel ── */
+    .rp-right {
+      flex: 1;
+      background: #f8fafc;
+      display: flex; align-items: center; justify-content: center;
+      padding: 48px 32px;
+    }
+    .rp-form-box { width: 100%; max-width: 420px; }
+
+    /* ── Back button ── */
+    .rp-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #64748b; font-size: 13px; font-weight: 600;
+      text-decoration: none; padding: 6px 14px;
+      border-radius: 8px; background: #fff;
+      border: 1px solid #e2e8f0; transition: all .2s;
+      margin-bottom: 28px;
+    }
+    .rp-back:hover { border-color: #6366f1; color: #6366f1; }
+
+    /* ── Step indicator ── */
+    .rp-steps { display: flex; align-items: center; margin: 20px 0 28px; }
+    .rp-step-item { display: flex; align-items: center; gap: 6px; }
+    .rp-step-num {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; transition: all .3s; flex-shrink: 0;
+    }
+    .rp-step-num.idle   { background: #fff; border: 1.5px solid #e2e8f0; color: #94a3b8; }
+    .rp-step-num.active { background: #6366f1; color: #fff; border: none; }
+    .rp-step-num.done   { background: #10b981; color: #fff; border: none; }
+    .rp-step-label { font-size: 12px; font-weight: 600; color: #94a3b8; transition: color .3s; }
+    .rp-step-label.active { color: #6366f1; }
+    .rp-step-label.done   { color: #10b981; }
+    .rp-step-conn { flex: 1; height: 1px; background: #e2e8f0; margin: 0 8px; }
+
+    /* ── Form elements ── */
+    .rp-label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 7px; }
+    .rp-phone-wrap { position: relative; }
+    .rp-prefix {
+      position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+      font-size: 14px; font-weight: 600; color: #94a3b8; pointer-events: none;
+    }
+    .rp-phone-input {
+      width: 100%; border: 1.5px solid #e2e8f0; border-radius: 12px;
+      padding: 14px 16px 14px 52px; font-size: 15px; color: #1e293b;
+      outline: none; background: #fff; box-sizing: border-box;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .rp-phone-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+    .rp-phone-input::placeholder { color: #94a3b8; }
+    .rp-phone-input.valid { border-color: #10b981; }
+    .rp-phone-input:disabled { background: #f8fafc; color: #64748b; }
+
+    /* Strength bar */
+    .rp-strength-bar {
+      height: 3px; border-radius: 2px; background: #e2e8f0;
+      margin-top: 6px; overflow: hidden;
+    }
+    .rp-strength-fill { height: 100%; border-radius: 2px; transition: width .4s, background .4s; }
+
+    /* Buttons */
+    .rp-btn-primary {
+      width: 100%; background: #6366f1; color: #fff;
+      font-weight: 700; font-size: 15px; padding: 15px;
+      border-radius: 12px; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background .2s, transform .15s, box-shadow .2s;
+    }
+    .rp-btn-primary:hover:not(:disabled) {
+      background: #4f46e5; transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(99,102,241,.3);
+    }
+    .rp-btn-primary:disabled { opacity: .65; cursor: not-allowed; }
+    .rp-btn-primary.success { background: #10b981; }
+
+    .rp-btn-ghost {
+      width: 100%; background: transparent; color: #6366f1;
+      font-weight: 600; font-size: 15px; padding: 14px;
+      border-radius: 12px; border: 1.5px solid #e0e7ff; cursor: pointer;
+      transition: background .2s, border-color .2s, transform .15s;
+    }
+    .rp-btn-ghost:hover:not(:disabled) {
+      background: #eef2ff; border-color: #6366f1; transform: translateY(-1px);
+    }
+    .rp-btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+
+    .rp-spinner {
+      width: 17px; height: 17px;
+      border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite; display: inline-block;
+    }
+
+    /* OTP boxes */
+    .rp-otp-row { display: flex; gap: 10px; justify-content: center; }
+    .rp-otp-digit {
+      width: 48px; height: 56px; text-align: center;
+      font-size: 1.25rem; font-weight: 700;
+      border: 1.5px solid #e2e8f0; border-radius: 12px;
+      outline: none; transition: border-color .2s, box-shadow .2s, background .2s;
+      color: #1e293b; background: #fff;
+    }
+    .rp-otp-digit:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.14); }
+    .rp-otp-digit.filled { border-color: #6366f1; background: #eef2ff; }
+    .rp-otp-digit.error  { border-color: #ef4444; background: #fef2f2; animation: shake .3s ease; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25%      { transform: translateX(-4px); }
+      75%      { transform: translateX(4px); }
+    }
+
+    /* Timer */
+    .rp-timer-wrap { display: flex; align-items: center; gap: 8px; justify-content: center; margin: 12px 0; }
+    .rp-timer-circle { width: 34px; height: 34px; position: relative; }
+    .rp-timer-circle svg { transform: rotate(-90deg); }
+    .rp-timer-num {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      font-size: 9px; font-weight: 700; color: #6366f1;
+    }
+    .rp-resend-txt { font-size: 13px; color: #64748b; }
+    .rp-resend-link { font-size: 13px; color: #6366f1; font-weight: 600; cursor: pointer; }
+    .rp-resend-link:hover { text-decoration: underline; }
+
+    /* Dev OTP */
+    .rp-dev-otp {
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 12px; padding: 12px 16px;
+      animation: slideIn .3s ease both;
+    }
+    .rp-dev-label { font-size: 11px; font-weight: 700; color: #15803d; margin: 0 0 4px; }
+    .rp-dev-code  { font-size: 22px; font-weight: 800; color: #166534; margin: 0; letter-spacing: .2em; }
+
+    /* Toast */
+    .rp-toast {
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 9999; padding: 12px 24px; border-radius: 12px;
+      font-weight: 600; font-size: 14px; white-space: nowrap;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      animation: slideIn .3s ease both;
+    }
+    .rp-toast.success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .rp-toast.error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    /* Divider */
+    .rp-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; }
+    .rp-divider-line { flex: 1; height: 1px; background: #e2e8f0; }
+    .rp-divider-txt  { font-size: 12px; color: #94a3b8; font-weight: 500; }
+
+    .rp-footer { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 24px; }
+    .rp-footer a { color: #6366f1; text-decoration: none; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .rp-root { flex-direction: column; }
+      .rp-left {
+        width: 100%; padding: 24px 20px;
+        flex-direction: row; align-items: center;
+        justify-content: space-between; gap: 12px;
+      }
+      .rp-left-top { display: flex; flex-direction: column; gap: 4px; }
+      .rp-left-headline { font-size: 18px; margin: 0; }
+      .rp-left-sub { display: none; }
+      .rp-trust-list { display: none; }
+      .rp-review-card { display: none; }
+      .rp-right { padding: 28px 20px; }
+      .rp-otp-digit { width: 40px; height: 48px; font-size: 1rem; }
+    }
+
+    @media (max-width: 400px) {
+      .rp-otp-row { gap: 6px; }
+      .rp-otp-digit { width: 36px; height: 44px; font-size: .9rem; border-radius: 8px; }
     }
   `}</style>
 );
 
-/* ── OTP digit boxes ── */
-function OtpInput({ value, onChange }) {
-  const digits = value.padEnd(6, "").split("");
+/* ── OTP Input ── */
+function OtpInput({ value, onChange, hasError }) {
+  const refs = useRef([]);
+  const digits = value.padEnd(6, " ").split("");
 
-  const handleKey = (e, idx) => {
-    const d = e.key;
-    if (d === "Backspace") {
-      const next = value.slice(0, idx === 0 ? 0 : idx - 1) + value.slice(idx);
-      onChange(next.replace(/\D/g, "").slice(0, 6));
-      if (idx > 0) document.getElementById(`otp-${idx - 1}`)?.focus();
+  const handleKeyDown = (e, i) => {
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      const arr = value.split("");
+      if (arr[i] && arr[i] !== " ") {
+        arr[i] = " ";
+      } else if (i > 0) {
+        arr[i - 1] = " ";
+        refs.current[i - 1]?.focus();
+      }
+      onChange(arr.join("").trimEnd());
       return;
     }
-    if (!/^\d$/.test(d)) return;
-    const arr = value.split("");
-    arr[idx] = d;
-    const next = arr.join("").replace(/\D/g, "").slice(0, 6);
-    onChange(next);
-    if (idx < 5) document.getElementById(`otp-${idx + 1}`)?.focus();
+    if (!/^\d$/.test(e.key)) { e.preventDefault(); return; }
+    e.preventDefault();
+    const arr = value.padEnd(6, " ").split("");
+    arr[i] = e.key;
+    onChange(arr.join("").trimEnd());
+    if (i < 5) refs.current[i + 1]?.focus();
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    onChange(pasted);
+    const focusIdx = Math.min(pasted.length, 5);
+    refs.current[focusIdx]?.focus();
   };
 
   return (
-    <div className="otp-box" style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-      {[0,1,2,3,4,5].map(i => (
-        <input
-          key={i}
-          id={`otp-${i}`}
-          type="text"
-          inputMode="numeric"
-          maxLength={1}
-          value={digits[i] === " " ? "" : digits[i]}
-          className={digits[i] && digits[i] !== " " ? "filled" : ""}
-          onChange={() => {}}
-          onKeyDown={(e) => handleKey(e, i)}
-          onPaste={(e) => {
-            const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-            onChange(pasted);
-            document.getElementById(`otp-${Math.min(pasted.length, 5)}`)?.focus();
-          }}
-        />
-      ))}
+    <div className="rp-otp-row">
+      {[0,1,2,3,4,5].map(i => {
+        const ch = digits[i] === " " ? "" : digits[i];
+        return (
+          <input
+            key={i}
+            ref={el => refs.current[i] = el}
+            className={`rp-otp-digit${ch ? " filled" : ""}${hasError ? " error" : ""}`}
+            type="text"
+            inputMode="numeric"
+            maxLength={1}
+            value={ch}
+            onChange={() => {}}
+            onKeyDown={(e) => handleKeyDown(e, i)}
+            onPaste={handlePaste}
+            aria-label={`OTP digit ${i + 1}`}
+          />
+        );
+      })}
     </div>
   );
 }
 
-/* ── trust signals for left panel ── */
+/* ── Countdown timer ring ── */
+const RING_CIRC = 81.7;
+function TimerRing({ seconds, total }) {
+  const offset = ((total - seconds) / total) * RING_CIRC;
+  return (
+    <div className="rp-timer-circle">
+      <svg width="34" height="34" viewBox="0 0 34 34">
+        <circle cx="17" cy="17" r="13" fill="none" stroke="#e2e8f0" strokeWidth="2.5" />
+        <circle
+          cx="17" cy="17" r="13" fill="none" stroke="#6366f1" strokeWidth="2.5"
+          strokeDasharray={RING_CIRC} strokeDashoffset={offset}
+          strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s linear" }}
+        />
+      </svg>
+      <span className="rp-timer-num">{seconds}</span>
+    </div>
+  );
+}
+
+/* ── Step indicator ── */
+function Steps({ step }) {
+  const state = (n) =>
+    step > n ? "done" : step === n ? "active" : "idle";
+
+  return (
+    <div className="rp-steps">
+      {[["1", "Mobile"], ["2", "OTP"], ["3", "Dashboard"]].map(([num, label], i) => {
+        const s = state(i + 1);
+        return (
+          <div key={i} style={{ display: "flex", alignItems: "center", flex: i < 2 ? "1 1 auto" : "none" }}>
+            <div className="rp-step-item">
+              <div className={`rp-step-num ${s}`}>{s === "done" ? "✓" : num}</div>
+              <span className={`rp-step-label ${s}`}>{label}</span>
+            </div>
+            {i < 2 && <div className="rp-step-conn" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Trust points ── */
 const trustPoints = [
   { icon: "🛡️", text: "Invoice-verified reviews only" },
   { icon: "🤖", text: "AI moderation catches fakes instantly" },
   { icon: "⭐", text: "Build a trust score customers believe" },
 ];
 
-const recentReview = {
-  name: "Deepa R.",
-  business: "Rao Textiles",
-  body: "3x more reviews in a week after getting the QR badge!",
-  rating: 5,
-};
-
-/* ── main ── */
+/* ── Main Login component ── */
 export default function Login() {
   const navigate = useNavigate();
 
-  const [mobile, setMobile] = useState("");
-  const [otp, setOtp] = useState("");
+  const [mobile, setMobile]         = useState("");
+  const [otp, setOtp]               = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [otpSent, setOtpSent]       = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
-  const [loggingIn, setLoggingIn] = useState(false);
-  const [toast, setToast] = useState(null); // { type: 'success'|'error', msg }
+  const [loggingIn, setLoggingIn]   = useState(false);
+  const [otpError, setOtpError]     = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const [toast, setToast]           = useState(null);
   const [resendTimer, setResendTimer] = useState(0);
+  const [step, setStep]             = useState(1);
 
-  const showToast = (type, msg) => {
+  const timerRef = useRef(null);
+
+  const showToast = useCallback((type, msg) => {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 4000);
-  };
+  }, []);
 
-  const startResendTimer = () => {
-    setResendTimer(30);
-    const iv = setInterval(() => {
+  const startResendTimer = useCallback((secs = 30) => {
+    clearInterval(timerRef.current);
+    setResendTimer(secs);
+    timerRef.current = setInterval(() => {
       setResendTimer(t => {
-        if (t <= 1) { clearInterval(iv); return 0; }
+        if (t <= 1) { clearInterval(timerRef.current); return 0; }
         return t - 1;
       });
     }, 1000);
-  };
+  }, []);
+
+  useEffect(() => () => clearInterval(timerRef.current), []);
+
+  /* Phone strength bar width */
+  const strengthPct = (mobile.length / 10) * 100;
+  const strengthColor = mobile.length === 10 ? "#10b981" : "#6366f1";
 
   const sendOtp = async () => {
     if (mobile.length !== 10) {
@@ -256,160 +426,125 @@ export default function Login() {
     }
     setSendingOtp(true);
     try {
-      const response = await api.post("/login-send-otp", { mobile });
-      if (!response.data.success) {
-        showToast("error", response.data.message);
-        return;
-      }
-      setGeneratedOtp(response.data.otp);
+      const res = await api.post("/login-send-otp", { mobile });
+      if (!res.data.success) { showToast("error", res.data.message); return; }
+      setGeneratedOtp(res.data.otp);
       setOtpSent(true);
-      startResendTimer();
+      setStep(2);
+      startResendTimer(30);
       showToast("success", `OTP sent to +91 ${mobile}`);
-    } catch (error) {
-      showToast("error", error?.response?.data?.message || "Couldn't send OTP. Try again.");
+    } catch (err) {
+      showToast("error", err?.response?.data?.message || "Couldn't send OTP. Try again.");
     } finally {
       setSendingOtp(false);
     }
   };
 
+  const resendOtp = async () => {
+    setOtp("");
+    setOtpError(false);
+    await sendOtp();
+  };
+
   const login = async () => {
-    if (mobile.length !== 10) {
-      showToast("error", "Please enter a valid 10-digit mobile number.");
-      return;
-    }
-    if (otp.length !== 6) {
+    if (otp.replace(/ /g, "").length !== 6) {
       showToast("error", "Please enter the complete 6-digit OTP.");
       return;
     }
     setLoggingIn(true);
+    setOtpError(false);
     try {
-      const response = await api.post("/verify-otp", { mobile, otp });
-      if (!response.data.success) {
-        showToast("error", response.data.message);
+      const res = await api.post("/verify-otp", { mobile, otp: otp.replace(/ /g, "") });
+      if (!res.data.success) {
+        setOtpError(true);
+        setOtp("");
+        showToast("error", res.data.message);
         return;
       }
-      localStorage.setItem("token", response.data.access_token);
+      localStorage.setItem("token", res.data.access_token);
+      setLoginSuccess(true);
+      setStep(3);
       showToast("success", "Welcome back! Redirecting to your dashboard…");
-      setTimeout(() => navigate("/dashboard"), 1200);
-    } catch (error) {
-      showToast("error", error?.response?.data?.message || "Invalid OTP. Please try again.");
+      setTimeout(() => navigate("/dashboard"), 1400);
+    } catch (err) {
+      setOtpError(true);
+      setOtp("");
+      showToast("error", err?.response?.data?.message || "Invalid OTP. Please try again.");
     } finally {
       setLoggingIn(false);
     }
   };
 
+  const otpComplete = otp.replace(/ /g, "").length === 6;
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="rp-root">
       <Styles />
 
-      {/* ── Toast ── */}
+      {/* Toast */}
       {toast && (
-        <div style={{
-          position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)",
-          zIndex: 9999, padding: "12px 24px", borderRadius: 12, fontWeight: 600,
-          fontSize: 14, boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-          background: toast.type === "success" ? "#f0fdf4" : "#fef2f2",
-          color: toast.type === "success" ? "#15803d" : "#dc2626",
-          border: `1px solid ${toast.type === "success" ? "#bbf7d0" : "#fecaca"}`,
-          animation: "otpSlide 0.3s ease both",
-        }}>
+        <div className={`rp-toast ${toast.type}`}>
           {toast.type === "success" ? "✓ " : "✕ "}{toast.msg}
         </div>
       )}
 
       {/* ── LEFT PANEL ── */}
-      <div className="left-panel" style={{
-        width: "42%", display: "flex", flexDirection: "column",
-        justifyContent: "center", padding: "60px 48px",
-        display: "flex",
-      }} aria-hidden="true">
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 48 }}>
-          <div className="logo-pulse" style={{
-            width: 40, height: 40, borderRadius: 12,
-            background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.35)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
-            </svg>
-          </div>
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: 22, letterSpacing: "-0.5px" }}>ReviewPe</span>
-        </div>
-
-        {/* Headline */}
-        <div style={{ marginBottom: 40 }}>
-          <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>
-            Business Portal
-          </p>
-          <h2 style={{ color: "#fff", fontSize: 34, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.5px", margin: 0 }}>
-            Real reviews.<br />Verified with proof.
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, marginTop: 14, lineHeight: 1.6 }}>
-            Join 5,000+ Indian businesses building customer trust the right way.
-          </p>
-        </div>
-
-        {/* Trust points */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 40 }}>
-          {trustPoints.map((p, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div className="step-dot">{p.icon}</div>
-              <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 500 }}>{p.text}</span>
+      <div className="rp-left" aria-hidden="true">
+        <div className="rp-left-top">
+          <div className="rp-logo-row">
+            <div className="rp-logo-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="white"/>
+              </svg>
             </div>
-          ))}
+            <span className="rp-brand">ReviewPe</span>
+          </div>
+
+          <div>
+            <p style={{ color: "rgba(255,255,255,.6)", fontSize: 12, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10, marginTop: 36 }}>
+              Business Portal
+            </p>
+            <h2 className="rp-left-headline">Real reviews.<br />Verified with proof.</h2>
+            <p className="rp-left-sub">Join 5,000+ Indian businesses building customer trust the right way.</p>
+          </div>
+
+          <div className="rp-trust-list">
+            {trustPoints.map((p, i) => (
+              <div className="rp-trust-item" key={i}>
+                <div className="rp-trust-dot">{p.icon}</div>
+                <span className="rp-trust-text">{p.text}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Mini review card */}
-        <div className="trust-card" style={{ padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: "50%",
-              background: "rgba(255,255,255,0.25)", display: "flex",
-              alignItems: "center", justifyContent: "center",
-              fontSize: 11, fontWeight: 700, color: "#fff",
-            }}>DR</div>
+        {/* Review card */}
+        <div className="rp-review-card">
+          <div className="rp-review-row">
+            <div className="rp-avatar">DR</div>
             <div>
-              <p style={{ color: "#fff", fontSize: 13, fontWeight: 700, margin: 0 }}>{recentReview.name}</p>
-              <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, margin: 0 }}>on {recentReview.business}</p>
+              <p className="rp-review-name">Deepa R.</p>
+              <p className="rp-review-biz">on Rao Textiles</p>
             </div>
-            <div style={{ marginLeft: "auto", fontSize: 12, color: "#fbbf24" }}>★★★★★</div>
+            <div className="rp-stars">★★★★★</div>
           </div>
-          <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, margin: 0, lineHeight: 1.5 }}>
-            "{recentReview.body}"
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
-            <span style={{
-              background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)",
-              borderRadius: 20, padding: "2px 10px", fontSize: 11, color: "#fff", fontWeight: 600,
-            }}>✓ Verified Purchase</span>
-          </div>
+          <p className="rp-review-body">"3x more reviews in a week after getting the QR badge!"</p>
+          <span className="rp-verified">✓ Verified Purchase</span>
         </div>
       </div>
 
       {/* ── RIGHT PANEL ── */}
-      <div style={{
-        flex: 1, background: "#f8fafc",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "40px 24px",
-      }}>
-        <div style={{ width: "100%", maxWidth: 440 }}>
+      <div className="rp-right">
+        <div className="rp-form-box">
 
-          {/* Back to home */}
-          <div className="fade-up-1" style={{ marginBottom: 32 }}>
-            <Link to="/" style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              color: "#64748b", fontSize: 13, fontWeight: 600, textDecoration: "none",
-              padding: "6px 12px", borderRadius: 8, background: "#fff",
-              border: "1px solid #e2e8f0", transition: "all 0.2s",
-            }}>
-              ← Back to home
-            </Link>
+          {/* Back link */}
+          <div className="rp-fade-1">
+            <Link to="/" className="rp-back">← Back to home</Link>
           </div>
 
           {/* Header */}
-          <div className="fade-up-2" style={{ marginBottom: 32 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.5px" }}>
+          <div className="rp-fade-2" style={{ marginBottom: 4 }}>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-.5px" }}>
               Welcome back 👋
             </h1>
             <p style={{ color: "#64748b", fontSize: 15, marginTop: 8 }}>
@@ -417,23 +552,24 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Mobile field */}
-          <div className="fade-up-3" style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>
-              Mobile Number
-            </label>
-            <div style={{ position: "relative" }}>
-              <span style={{
-                position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
-                fontSize: 14, fontWeight: 600, color: "#94a3b8",
-              }}>+91</span>
+          {/* Step indicator */}
+          <div className="rp-fade-3">
+            <Steps step={step} />
+          </div>
+
+          {/* Mobile number */}
+          <div className="rp-fade-4" style={{ marginBottom: 14 }}>
+            <label className="rp-label" htmlFor="rp-mobile">Mobile Number</label>
+            <div className="rp-phone-wrap">
+              <span className="rp-prefix">+91</span>
               <input
-                className="input-field"
+                id="rp-mobile"
+                className={`rp-phone-input${mobile.length === 10 ? " valid" : ""}`}
                 type="tel"
                 placeholder="98765 43210"
                 value={mobile}
                 maxLength={10}
-                style={{ paddingLeft: 52 }}
+                disabled={otpSent}
                 onChange={(e) => {
                   const v = e.target.value.replace(/\D/g, "");
                   if (v.length <= 10) setMobile(v);
@@ -441,92 +577,105 @@ export default function Login() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !otpSent) sendOtp(); }}
               />
             </div>
+            {/* Strength bar */}
+            <div className="rp-strength-bar">
+              <div
+                className="rp-strength-fill"
+                style={{ width: `${strengthPct}%`, background: strengthColor }}
+              />
+            </div>
           </div>
 
-          {/* Send OTP button */}
-          <div className="fade-up-4" style={{ marginBottom: 20 }}>
+          {/* Send OTP / Resend */}
+          <div className="rp-fade-5" style={{ marginBottom: 14 }}>
             {!otpSent ? (
-              <button className="btn-primary" onClick={sendOtp} disabled={sendingOtp || mobile.length !== 10}>
-                {sendingOtp ? <><span className="spinner" /> Sending OTP…</> : "Send OTP →"}
+              <button
+                className="rp-btn-primary"
+                onClick={sendOtp}
+                disabled={sendingOtp || mobile.length !== 10}
+              >
+                {sendingOtp ? <><span className="rp-spinner" /> Sending OTP…</> : "Send OTP →"}
               </button>
             ) : (
               <button
-                className="btn-ghost"
-                onClick={sendOtp}
-                disabled={sendingOtp || resendTimer > 0}
+                className={`rp-btn-primary${otpSent && !sendingOtp ? " success" : ""}`}
+                disabled
               >
-                {sendingOtp
-                  ? "Resending…"
-                  : resendTimer > 0
-                  ? `Resend OTP in ${resendTimer}s`
-                  : "Resend OTP"}
+                OTP Sent ✓
               </button>
             )}
           </div>
 
           {/* Dev OTP display */}
           {generatedOtp && (
-            <div className="dev-otp otp-reveal" style={{ marginBottom: 20 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#15803d", margin: "0 0 4px" }}>
-                🔧 Development mode — OTP
-              </p>
-              <p style={{ fontSize: 22, fontWeight: 800, color: "#166534", margin: 0, letterSpacing: "0.15em" }}>
-                {generatedOtp}
-              </p>
+            <div className="rp-dev-otp rp-slide" style={{ marginBottom: 14 }}>
+              <p className="rp-dev-label">🔧 Development mode — OTP</p>
+              <p className="rp-dev-code">{generatedOtp}</p>
             </div>
           )}
 
-          {/* OTP section */}
+          {/* OTP entry section */}
           {otpSent && (
-            <div className="otp-reveal" style={{ marginBottom: 20 }}>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4 }}>
-                  Enter OTP
-                </label>
+            <div className="rp-slide" style={{ marginBottom: 14 }}>
+              <div style={{ marginBottom: 12 }}>
+                <label className="rp-label">Enter OTP</label>
                 <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
-                  We sent a 6-digit code to +91 {mobile}
+                  Sent to +91 {mobile}
                 </p>
               </div>
-              <OtpInput value={otp} onChange={setOtp} />
-            </div>
-          )}
 
-          {/* Login button */}
-          {otpSent && (
-            <div className="fade-up-5 otp-reveal" style={{ marginBottom: 24 }}>
+              <OtpInput value={otp} onChange={setOtp} hasError={otpError} />
+
+              {/* Timer */}
+              {resendTimer > 0 ? (
+                <div className="rp-timer-wrap">
+                  <TimerRing seconds={resendTimer} total={30} />
+                  <span className="rp-resend-txt">
+                    Resend OTP in <strong>{resendTimer}s</strong>
+                  </span>
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", margin: "12px 0" }}>
+                  <span className="rp-resend-link" onClick={resendOtp}>
+                    Didn't get it? Resend OTP
+                  </span>
+                </div>
+              )}
+
+              {/* Login button */}
               <button
-                className="btn-primary"
+                className={`rp-btn-primary${loginSuccess ? " success" : ""}`}
                 onClick={login}
-                disabled={loggingIn || otp.length !== 6}
+                disabled={loggingIn || !otpComplete || loginSuccess}
+                style={{ marginTop: 4 }}
               >
-                {loggingIn ? <><span className="spinner" /> Verifying…</> : "Log in to Dashboard →"}
+                {loginSuccess
+                  ? "✓ Verified! Redirecting…"
+                  : loggingIn
+                  ? <><span className="rp-spinner" /> Verifying…</>
+                  : "Log in to Dashboard →"}
               </button>
             </div>
           )}
 
-          {/* Divider */}
-          <div className="fade-up-6" style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, marginTop: otpSent ? 0 : 8 }}>
-            <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
-            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>New to ReviewPe?</span>
-            <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
-          </div>
-
-          {/* Register CTA */}
-          <div className="fade-up-6">
-            <button
-              className="btn-ghost"
-              onClick={() => navigate("/register")}
-            >
+          {/* Divider + Register CTA */}
+          <div className="rp-fade-6">
+            <div className="rp-divider">
+              <div className="rp-divider-line" />
+              <span className="rp-divider-txt">New to ReviewPe?</span>
+              <div className="rp-divider-line" />
+            </div>
+            <button className="rp-btn-ghost" onClick={() => navigate("/register")}>
               Register your business now!
             </button>
           </div>
 
-          {/* Footer note */}
-          <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", marginTop: 28 }}>
+          {/* Footer */}
+          <p className="rp-footer">
             By logging in, you agree to ReviewPe's{" "}
-            <a href="#" style={{ color: "#6366f1", textDecoration: "none" }}>Terms</a> &{" "}
-            <a href="#" style={{ color: "#6366f1", textDecoration: "none" }}>Privacy Policy</a>
+            <a href="#">Terms</a> &amp; <a href="#">Privacy Policy</a>
           </p>
+
         </div>
       </div>
     </div>

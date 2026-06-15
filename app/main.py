@@ -246,10 +246,14 @@ def register_business(
     )
 
     if not city_sequence:
-        return {
-            "success": False,
-            "message": f"City code {city_code} not found in database. Please add it first."
-        }
+        city_sequence = CitySequence(
+        city_code=city_code,
+        current_number=0
+    )
+
+    db.add(city_sequence)
+    db.commit()
+    db.refresh(city_sequence)
 
     # Generate ReviewPe ID
     city_sequence.current_number += 1
