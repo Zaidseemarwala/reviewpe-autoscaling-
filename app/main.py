@@ -36,11 +36,14 @@ app.mount(
     StaticFiles(directory="static"),
     name="static"
 )
+from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "https://reviewpe-4zfarxta5-reviewpe-s-projects.vercel.app",
         "https://reviewpe-7fxlcvvta-reviewpe-s-projects.vercel.app"
     ],
     allow_credentials=True,
